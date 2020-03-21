@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # One column (magnitude) input data
-input="Indonesia"	
+input="Catalog"	
 # Magnitude spacing (bins)		
 Inc="0.10"		
 # Output ps file			
-PsFile="Indo"	
+PsFile="GN"	
 # Minimum and Maximum value on X axis			
 min_mag="0"					
 max_mag="7.5"	
