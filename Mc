@@ -103,7 +103,7 @@ gmt pshistogram $input -JX4i -R$Min_mag/$Max_mag/$Y1/$Y2 -Ggray -L0.5,black -W"$
 -Ba -Bx+l"Magnitude" -By+l"Number of Events" -K -O -P >> $PsFile.ps
 
 sl=`echo "$A * -1" | bc -l`
-gmt pstext -R-1/10/-3/3 -JX3i -X15.3 -Y9.5 -F+f12p -K -O << EOF >> $PsFile.ps 
+gmt pstext -R-1/10/-3/3 -JX3i -X15.3 -Y9.5 -F+f12p -K -O << EOF >> $PsFile.ps 2> /dev/null
 0 0 13 0 0 1 Log(M) = $B - $sl * M
 EOF
 echo "Line Equation is ==> Log(M) = $B - `echo "$A * -1" | bc -l` * M"
