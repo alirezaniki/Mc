@@ -1,0 +1,109 @@
+#!/bin/bash
+
+# One column (magnitude) input data
+input="Indonesia"	
+# Magnitude spacing (bins)		
+Inc="0.10"		
+# Output ps file			
+PsFile="Indo"	
+# Minimum and Maximum value on X axis			
+min_mag="0"					
+max_mag="7.5"	
+# Minimum and Maximum value on Y axis			
+min_eve="0.85"				
+max_eve="1e4"				
+
+########################################## Do not change anything below!
+
+Prepare_Input ()
+{
+	cat /dev/null > incremental.dat
+	cat /dev/null > cumulative.dat
+	Min_mag=`sort -n $input | head -1`
+	Max_mag=`sort -n $input | tail -1`
+	NUM=0
+	for i in $(seq $Min_mag $Inc $Max_mag); do
+		j=`echo "$i + $Inc" | bc -l`
+		num=`awk -v i=$i -v j=$j '{if ($1 >= i && $1 < j) print $0}' ./$input | wc -l`
+		echo "$i $num" >> incremental.dat
+	done 
+
+	NUM=0
+	# In cumulative plot the order must be somehow so as to the max mag have the lower value.
+	for i in $(seq $Max_mag -$Inc $Min_mag); do
+		j=`echo "$i - $Inc" | bc -l`
+		num=`awk -v i=$i -v j=$j '{if ($1 > j && $1 <= i) print $0}' ./$input | wc -l`
+		NUM=`echo "$NUM + $num" | bc -l`
+		echo "$i $NUM" >> cumulative.dat
+	done 
+	
+	# If the spacing is set to 0.01 then, 
+	# and in the second output (info2.dat):
+	# 1.00	n	i.e. >>> 1.00 =< mag < 1.01 
+	# 1.01	m	i.e. >>> 1.01 =< mag < 1.02
+	# 1.02	k	i.e. >>> 1.02 =< mag < 1.03
+}
+
+Regress ()
+{
+	# The desired figure is semi-logarithmic (Y axis is LOG)
+	rm .up .down 2> /dev/null
+	# We need the Y axis data to be in LOG scale, then train the equation.
+	awk '{print $1,(log($2)/log(10))}' cumulative.dat > .tmp
+	# Start doing regression in Ylog Xlin data.
+	Xmean=`awk '{sum+=$1} END {print sum/NR}' .tmp`
+	Ymean=`awk '{sum+=$2} END {print sum/NR}' .tmp`
+
+	while read info; do
+		echo $info | awk -v Xave="$Xmean" -v Yave="$Ymean" '{print ($1 - Xave) * ($2 - Yave)}' >> .up
+		echo $info | awk -v Xave="$Xmean" '{print ($1 - Xave) * ($1 - Xave)}' >> .down
+	done < .tmp
+	UpSum=`awk '{Sum+=$1} END {print Sum}' .up`	
+	DoSum=`awk '{SuM+=$1} END {print SuM}' .down`
+	export A=`echo "scale=3; $UpSum / $DoSum" | bc -l`
+	export B=`echo "scale=3; $Ymean - ($A * $Xmean)" | bc -l`
+	# Y = AX + B
+}
+
+YPoint_Eval ()
+{
+	# In semi-logarithmic figure >>> Log Y = aX + b  
+	# =~~~~~>> Y = 10 ^ (aX + b)
+	Y1=`echo "scale=3; 10 ^ (($A * $1) + $B)" | bc -l 2> /dev/null`
+	Y2=`echo "scale=3; 10 ^ (($A * $2) + $B)" | bc -l 2> /dev/null`
+}
+
+######################## Body Script
+
+[[ ! -f $input ]] && echo "Input data not found!" && exit
+echo "Preparing input data for plot ..."
+Prepare_Input
+echo "Calculating regression equation ..."
+Regress
+
+# Pick the min and max values of x axis and grab the corresponding Y 
+# values from the regression equation.
+X1=`sort -n -k1 cumulative.dat | head -1 | cut -f 1 -d " "`
+X2=`sort -n -k1 cumulative.dat | tail -1 | cut -f 1 -d " "`
+YPoint_Eval $X1 $X2
+
+# Plot stage
+echo "Ploting results ..."
+gmt psbasemap -R"$min_mag"/"$max_mag"/"$min_eve"/"$max_eve" -JX5i/5il -BWS -Bxf0.5a1+l"Magnitude" \
+-Bya1g3p+l"Cumulative Number of Events" -X15.5 -Yc -K > $PsFile.ps
+
+gmt psxy incremental.dat -W0.4,black -R -J -St0.25c -i0,1 -K -O >> $PsFile.ps
+gmt psxy cumulative.dat -W0.4,black -R -J -Ss0.25c -i0,1 -K -O >> $PsFile.ps
+echo -e "$X1 $Y1\n$X2 $Y2" | gmt psxy -R -J -W1.5,red -K -O -Nc >> $PsFile.ps
+
+echo "Ploting Event-Frequency Histogram ..."
+Y1=`sort -n -k 2 incremental.dat | head -1 | cut -f 2 -d " "`
+Y2=$((`sort -n -k 2 incremental.dat | tail -1 | cut -f 2 -d " "` + 10))
+gmt pshistogram $input -JX4i -R$Min_mag/$Max_mag/$Y1/$Y2 -Ggray -L0.5,black -W"$Inc" -X-12 -Y0 -BWS \
+-Ba -Bx+l"Magnitude" -By+l"Number of Events" -K -O -P >> $PsFile.ps
+
+sl=`echo "$A * -1" | bc -l`
+gmt pstext -R-1/10/-3/3 -JX3i -X15.3 -Y9.5 -F+f12p -K -O << EOF >> $PsFile.ps 
+0 0 13 0 0 1 Log(M) = $B - $sl * M
+EOF
+echo "Line Equation is ==> Log(M) = $B - `echo "$A * -1" | bc -l` * M"
