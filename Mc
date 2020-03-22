@@ -95,8 +95,8 @@ echo "Ploting results ..."
 gmt psbasemap -R"$min_mag"/"$max_mag"/"$min_eve"/"$max_eve" -JX5i/5il -BWS -Bxf0.5a1+l"Magnitude" \
 -Bya1g3p+l"Cumulative Number of Events" -X15.5 -Yc -K > $PsFile.ps
 
-gmt psxy incremental.dat -W0.4,black -R -J -St0.25c -i0,1 -K -O >> $PsFile.ps
-gmt psxy cumulative.dat -W0.4,black -R -J -Ss0.25c -i0,1 -K -O >> $PsFile.ps
+gmt psxy incremental.dat -W0.4,black -R -J -St0.25c -Gwhite -i0,1 -K -O >> $PsFile.ps
+gmt psxy cumulative.dat -W0.4,black -R -J -Ss0.25c -Gwhite -i0,1 -K -O >> $PsFile.ps
 echo -e "$X1 $Y1\n$X2 $Y2" | gmt psxy -R -J -W1.5,red -K -O -Nc >> $PsFile.ps
 
 echo "Ploting Event-Frequency Histogram ..."
