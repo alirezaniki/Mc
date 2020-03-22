@@ -5,10 +5,10 @@ input="Catalog"
 # Magnitude spacing (bins)		
 Inc="0.10"		
 # Output ps file			
-PsFile="IR2"	
+PsFile="IR"	
 # Minimum and Maximum value on X axis			
-min_mag="3.9"					
-max_mag="7.6"	
+min_mag="2.5"					
+max_mag="6.5"	
 # Minimum and Maximum value (cumulative) on Y axis			
 min_eve="0.9"				
 max_eve="3e3"				
@@ -60,17 +60,20 @@ Regress ()
 	done < .tmp
 	UpSum=`awk '{Sum+=$1} END {print Sum}' .up`	
 	DoSum=`awk '{SuM+=$1} END {print SuM}' .down`
-	export A=`echo "scale=3; $UpSum / $DoSum" | bc -l`
+	A=`echo "scale=3; $UpSum / $DoSum" | bc -l`
 	export B=`echo "scale=3; $Ymean - ($A * $Xmean)" | bc -l`
-	# Y = AX + B
+	export A=`echo "$A * -1" | bc -l`
+	# Y = B - (A * X)
 }
 
 YPoint_Eval ()
 {
 	# In semi-logarithmic figure >>> Log Y = aX + b  
-	# =~~~~~>> Y = 10 ^ (aX + b)
-	Y1=`echo "scale=3; 10 ^ (($A * $1) + $B)" | bc -l 2> /dev/null`
-	Y2=`echo "scale=3; 10 ^ (($A * $2) + $B)" | bc -l 2> /dev/null`
+	# =~~~~~>> Y = 10 ^ (B - AX)
+	P1=`echo "($B - ($A * $1))" | bc -l`
+	P2=`echo "($B - ($A * $2))" | bc -l`
+	Y1=`awk -v P=$P1 'BEGIN {print 10 ^ P}'`
+	Y2=`awk -v P=$P2 'BEGIN {print 10 ^ P}'`
 }
 
 ######################## Body Script
@@ -102,9 +105,8 @@ Y2=$((`sort -n -k 2 incremental.dat | tail -1 | cut -f 2 -d " "` + 20))
 gmt pshistogram $input -JX4i -R$min_mag/$max_mag/$Y1/$Y2 -F -Ggray -L0.5,black -W"$Inc" -X-12 -Y0 -BWS \
  -Bx+l"Magnitude" -By+l"Number of Events" -Ba -K -O -P >> $PsFile.ps
 
-sl=`echo "$A * -1" | bc -l`
 gmt pstext -R-1/10/-3/3 -JX3i -X15.3 -Y9.5 -F+f12p -K -O << EOF >> $PsFile.ps 2> /dev/null
-0 0 13 0 0 1 Log(M) = $B - $sl * M
+0 0 13 0 0 1 Log(M) = $B - ($A * M)
 EOF
 
 echo "0.2 0.8" | gmt psxy -W0.4,black -R -J -St0.25c -i0,1 -K -O >> $PsFile.ps
@@ -114,4 +116,4 @@ gmt pstext -R -J -F+f12p -K -O << EOF >> $PsFile.ps 2> /dev/null
 5.2 0.76 11 0 0 1 Cumulative
 EOF
 
-echo "Line Equation is ==> Log(M) = $B - `echo "$A * -1" | bc -l` * M"
+echo "Line Equation is ==> Log(M) = $B - ($A * M)"
