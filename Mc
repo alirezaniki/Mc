@@ -5,13 +5,13 @@ input="Catalog"
 # Magnitude spacing (bins)		
 Inc="0.10"		
 # Output ps file			
-PsFile="GN"	
+PsFile="IR2"	
 # Minimum and Maximum value on X axis			
-min_mag="0"					
-max_mag="7.5"	
-# Minimum and Maximum value on Y axis			
-min_eve="0.85"				
-max_eve="1e4"				
+min_mag="3.9"					
+max_mag="7.6"	
+# Minimum and Maximum value (cumulative) on Y axis			
+min_eve="0.9"				
+max_eve="3e3"				
 
 ########################################## Do not change anything below!
 
@@ -98,12 +98,20 @@ echo -e "$X1 $Y1\n$X2 $Y2" | gmt psxy -R -J -W1.5,red -K -O -Nc >> $PsFile.ps
 
 echo "Ploting Event-Frequency Histogram ..."
 Y1=`sort -n -k 2 incremental.dat | head -1 | cut -f 2 -d " "`
-Y2=$((`sort -n -k 2 incremental.dat | tail -1 | cut -f 2 -d " "` + 10))
-gmt pshistogram $input -JX4i -R$Min_mag/$Max_mag/$Y1/$Y2 -Ggray -L0.5,black -W"$Inc" -X-12 -Y0 -BWS \
--Ba -Bx+l"Magnitude" -By+l"Number of Events" -K -O -P >> $PsFile.ps
+Y2=$((`sort -n -k 2 incremental.dat | tail -1 | cut -f 2 -d " "` + 20))
+gmt pshistogram $input -JX4i -R$min_mag/$max_mag/$Y1/$Y2 -F -Ggray -L0.5,black -W"$Inc" -X-12 -Y0 -BWS \
+ -Bx+l"Magnitude" -By+l"Number of Events" -Ba -K -O -P >> $PsFile.ps
 
 sl=`echo "$A * -1" | bc -l`
 gmt pstext -R-1/10/-3/3 -JX3i -X15.3 -Y9.5 -F+f12p -K -O << EOF >> $PsFile.ps 2> /dev/null
 0 0 13 0 0 1 Log(M) = $B - $sl * M
 EOF
+
+echo "0.2 0.8" | gmt psxy -W0.4,black -R -J -St0.25c -i0,1 -K -O >> $PsFile.ps
+echo "4.8 0.83" | gmt psxy -W0.4,black -R -J -Ss0.25c -i0,1 -K -O >> $PsFile.ps
+gmt pstext -R -J -F+f12p -K -O << EOF >> $PsFile.ps 2> /dev/null
+0.6 0.74 11 0 0 1 Incremental
+5.2 0.76 11 0 0 1 Cumulative
+EOF
+
 echo "Line Equation is ==> Log(M) = $B - `echo "$A * -1" | bc -l` * M"
